@@ -1,480 +1,166 @@
-import axios from "axios";
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { API_URL } from "../constant";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { API_URL } from '../constant';
+import { Bar, Pie } from 'react-chartjs-2';
 import {
-  faInfo,
-  faPen,
-  faPlus,
-  faTrash,
-} from "@fortawesome/free-solid-svg-icons";
-import Modal from "../Components/Modal";
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Tooltip,
+  Legend,
+  ArcElement
+} from 'chart.js';
+import dayjs from 'dayjs';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Tooltip,
+  Legend,
+  ArcElement
+);
 
 export default function Dashboard() {
-  const [tickets, setTickets] = useState([]);
-  const [error, setError] = useState({});
-  const [detailTicket, setDetailTicket] = useState({});
-  const [formModal, setFormModal] = useState({
-    email: "",
-    title: "",
-    description: "",
-    ticket_type_id: "",
-    status: "",
-    assign_at: "",
-  });
-  const [selectedTicket, setSelectedTicket] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const navigate = useNavigate();
+  const [monthlyData, setMonthlyData] = useState({});
 
   useEffect(() => {
-    fetchData();
+    axios.get(`${API_URL}/tickets`)
+      .then(res => {
+        const grouped = res.data.reduce((acc, ticket) => {
+          const month = dayjs(ticket.assign_at).format('MMMM');
+          acc[month] = (acc[month] || 0) + 1;
+          return acc;
+        }, {});
+        setMonthlyData(grouped);
+      })
+      .catch(err => console.error('Gagal ambil data tiket', err));
   }, []);
 
-  function fetchData() {
-    axios
-      .get(API_URL)
-      .then((res) => {
-        const data = Array.isArray(res.data) ? res.data : res.data.data || [];
-        setTickets(data);
-      })
-      .catch((err) => {
-        if (err.response?.status === 401) {
-          localStorage.clear();
-          navigate("/");
+  const labels = Object.keys(monthlyData);
+  const values = Object.values(monthlyData);
+
+  const barChartData = {
+    labels,
+    datasets: [
+      {
+        label: 'Tiket per bulan',
+        data: values,
+        backgroundColor: '#4e73df',
+        borderRadius: 4
+      }
+    ]
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { 
+        display: false,
+        position: 'bottom'
+      },
+    },
+    scales: {
+      y: { 
+        beginAtZero: true,
+        grid: {
+          display: false
         }
-        setError(
-          err.response
-            ? err.response.data
-            : { message: "An unexpected error occurred" }
-        );
-      });
-  }
-
-  function handleSubmitModal(e) {
-    e.preventDefault();
-    axios
-      .post(API_URL, formModal)
-      .then(() => {
-        setIsModalOpen(false);
-        setFormModal({
-          email: "",
-          title: "",
-          description: "",
-          ticket_type_id: "",
-          status: "",
-          assign_at: "",
-        });
-        setError([]);
-        fetchData();
-      })
-      .catch((err) => {
-        setError(err.response?.data || { message: "Terjadi kesalahan." });
-      });
-  }
-
-  function handleEditSubmit(e) {
-    e.preventDefault();
-    axios
-      .patch(`${API_URL}/${selectedTicket.id}`, formModal)
-      .then(() => {
-        setIsEditModalOpen(false);
-        setSelectedTicket(null);
-        setFormModal({
-          email: "",
-          title: "",
-          description: "",
-          ticket_type_id: "",
-          status: "",
-          assign_at: "",
-        });
-        setError([]);
-        fetchData();
-      })
-      .catch((err) => {
-        setError(err.response?.data || { message: "Terjadi kesalahan." });
-      });
-  }
-
-  function handleDelete() {
-    axios
-      .delete(`${API_URL}/${selectedTicket.id}`)
-      .then(() => {
-        setIsDeleteModalOpen(false);
-        setSelectedTicket(null);
-        setError([]);
-        fetchData();
-      })
-      .catch((err) => {
-        setError(err.response?.data || { message: "Terjadi kesalahan." });
-      });
-  }
-
-  function handleBtnDetail(ticket) {
-    setDetailTicket(ticket);
-    setIsDetailModalOpen(true);
-  }
+      },
+      x: {
+        grid: {
+          display: false
+        }
+      }
+    }
+  };
 
   return (
-    <div className="container py-4">
-      <div className="d-flex justify-content-end">
-        <button className="btn btn-success" onClick={() => setIsModalOpen(true)}>
-          <FontAwesomeIcon icon={faPlus} /> Tambah Tiket
-        </button>
+    <div className="container-fluid p-4" style={{ backgroundColor: '#f8fafc' }}>
+      {/* Header with elegant title */}
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h1 className="h3 mb-1" style={{ color: '#2d3748', fontWeight: '600' }}>
+            <i className="bi bi-speedometer2 me-2" style={{ color: '#4e73df' }}></i>
+            Dashboard Tiket
+          </h1>
+          <p className="m-0 text-muted" style={{ fontSize: '0.9rem' }}>
+            Statistik dan analisis data tiket bulanan
+          </p>
+        </div>
+        <div className="text-muted" style={{ fontSize: '0.9rem' }}>
+          <i className="bi bi-calendar me-1"></i>
+          {dayjs().format('MMMM YYYY')}
+        </div>
       </div>
 
-      <table className="table table-bordered mt-4">
-        <thead>
-          <tr>
-            <th>Email</th>
-            <th>Masalah</th>
-            <th>Deskripsi</th>
-            <th>Jenis Tiket</th>
-            <th>Status</th>
-            <th>Tanggal Masalah</th>
-            <th>Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Array.isArray(tickets) && tickets.length > 0 ? (
-            tickets.map((ticket) => (
-              <tr key={ticket.id}>
-                <td>{ticket.email}</td>
-                <td>{ticket.title}</td>
-                <td>{ticket.description}</td>
-                <td>{ticket.ticket_type}</td>
-                <td>{ticket.status}</td>
-                <td>{ticket.assign_at}</td>
-                <td>
-                  <button
-                    className="btn btn-info btn-sm me-1"
-                    onClick={() => {
-                      setSelectedTicket(ticket);
-                      setFormModal({
-                        email: ticket.email,
-                        title: ticket.title,
-                        description: ticket.description,
-                        ticket_type_id: ticket.ticket_type_id || "",
-                        status: ticket.status,
-                        assign_at: ticket.assign_at,
-                      });
-                      setIsEditModalOpen(true);
-                    }}
-                  >
-                    <FontAwesomeIcon icon={faPen} />
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm me-1"
-                    onClick={() => {
-                      setSelectedTicket(ticket);
-                      setIsDeleteModalOpen(true);
-                    }}
-                  >
-                    <FontAwesomeIcon icon={faTrash} />
-                  </button>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() => handleBtnDetail(ticket)}
-                  >
-                    <FontAwesomeIcon icon={faInfo} />
-                  </button>
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="7" className="text-center">
-                Tidak ada data tiket tersedia.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-
-      {/* Add Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Tambah Tiket Baru"
-      >
-        <form onSubmit={handleSubmitModal}>
-          {Object.keys(error).length > 0 && (
-            <div className="alert alert-danger mb-4">
-              {error?.data && Object.entries(error.data).length > 0 ? (
-                <ul className="mb-0">
-                  {Object.entries(error.data).map(([key, value]) => (
-                    <li key={key}>{value}</li>
-                  ))}
-                </ul>
-              ) : (
-                <div>{error.message || "Terjadi kesalahan."}</div>
-              )}
+      {/* Chart Card */}
+      <div className="row">
+        <div className="col-xl-8 col-lg-10 mx-auto">
+          <div className="card border-0 shadow-sm" style={{ borderRadius: '12px' }}>
+            <div className="card-header bg-white border-0 py-3" style={{ borderRadius: '12px 12px 0 0' }}>
+              <div className="d-flex justify-content-between align-items-center">
+                <h5 className="m-0" style={{ color: '#2d3748', fontWeight: '600' }}>
+                  <i className="bi bi-bar-chart-line me-2" style={{ color: '#4e73df' }}></i>
+                  Statistik Tiket Bulanan
+                </h5>
+                <span className="badge bg-light text-primary" style={{ fontWeight: '500' }}>
+                  Tahun {dayjs().format('YYYY')}
+                </span>
+              </div>
             </div>
-          )}
-
-          <div className="row g-3">
-            <div className="col-md-6">
-              <div className="mb-3">
-                <label className="form-label fw-bold">
-                  Nama <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  onChange={(e) =>
-                    setFormModal({ ...formModal})
-                  }
+            <div className="card-body px-4 py-3">
+              <div style={{ height: '300px', position: 'relative' }}>
+                <Bar 
+                  data={barChartData} 
+                  options={{
+                    ...chartOptions,
+                    plugins: {
+                      tooltip: {
+                        backgroundColor: '#4e73df',
+                        titleFont: { weight: '600' },
+                        padding: 10,
+                        cornerRadius: 8
+                      }
+                    }
+                  }} 
                 />
               </div>
-              <div className="mb-3">
-                <label className="form-label fw-bold">
-                  Email <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  onChange={(e) =>
-                    setFormModal({ ...formModal})
-                  }
-                />
-              </div>
-
-              <div className="mb-3">
-                <label className="form-label fw-bold">
-                  Masalah <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  onChange={(e) =>
-                    setFormModal({ ...formModal})
-                  }
-                />
-              </div>
-
-              <div className="mb-3">
-                <label className="form-label fw-bold">
-                  Deskripsi <span className="text-danger">*</span>
-                </label>
-                <textarea
-                  rows="4"
-                  className="form-control"
-                  onChange={(e) =>
-                    setFormModal({ ...formModal})
-                  }
-                ></textarea>
-              </div>
-
-              <div className="mb-3">
-                <label className="form-label fw-bold">
-                  Jenis Tiket <span className="text-danger">*</span>
-                </label>
-                <select
-                  className="form-select"
-                  onChange={(e) =>
-                    setFormModal({ ...formModal})
-                  }
-                >
-                  <option value="">-- Pilih Jenis Tiket --</option>
-                  <option value="Insiden">Insiden</option>
-                  <option value="Perubahan_Permintaan">
-                    Perubahan Permintaan
-                  </option>
-                  <option value="Penugasan">Penugasan</option>
-                </select>
-              </div>
             </div>
-          </div>
-
-          <div className="d-flex justify-content-end mt-4 gap-2">
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={() => setIsModalOpen(false)}
-            >
-              Batal
-            </button>
-            <button type="submit" className="btn btn-primary px-4">
-              Simpan
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Edit Modal */}
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        title="Edit Tiket"
-      >
-        <form onSubmit={handleEditSubmit}>
-          {Object.keys(error).length > 0 && (
-            <div className="alert alert-danger mb-4">
-              {error?.data && Object.entries(error.data).length > 0 ? (
-                <ul className="mb-0">
-                  {Object.entries(error.data).map(([key, value]) => (
-                    <li key={key}>{value}</li>
-                  ))}
-                </ul>
-              ) : (
-                <div>{error.message || "Terjadi kesalahan."}</div>
-              )}
+            <div className="card-footer bg-white border-0 text-end py-3" style={{ borderRadius: '0 0 12px 12px', fontSize: '0.85rem' }}>
+              <span className="text-muted">
+                <i className="bi bi-info-circle me-1"></i>
+                Data diperbarui: {dayjs().format('DD MMM YYYY HH:mm')}
+              </span>
             </div>
-          )}
-
-          <div className="row g-3">
-            <div className="mb-3">
-              <label className="form-label fw-bold">
-                Email <span className="text-danger">*</span>
-              </label>
-              <input
-                type="text"
-                className="form-control"
-                value={formModal.email}
-                onChange={(e) =>
-                  setFormModal({ ...formModal, email: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="mb-3">
-              <label className="form-label fw-bold">
-                Deskripsi <span className="text-danger">*</span>
-              </label>
-              <input
-                type="text"
-                className="form-control"
-                value={formModal.description}
-                onChange={(e) =>
-                  setFormModal({ ...formModal, description: e.target.value })
-                }
-              />
-            </div>
-
-            <div className="mb-3">
-              <label className="form-label fw-bold">
-                Jenis Tiket <span className="text-danger">*</span>
-              </label>
-              <select
-                className="form-select"
-                value={formModal.ticket_type}
-                onChange={(e) =>
-                  setFormModal({ ...formModal, ticket_type: e.target.value })
-                }
-              >
-                <option value="">-- Pilih Jenis Tiket --</option>
-                <option value="Insiden">Insiden</option>
-                <option value="Perubahan_Permintaan">
-                  Perubahan Permintaan
-                </option>
-                <option value="Penugasan">Penugasan</option>
-              </select>
-            </div>
-
-            <div className="mb-3">
-              <label className="form-label fw-bold">
-                Status <span className="text-danger">*</span>
-              </label>
-              <select
-                className="form-select"
-                value={formModal.status}
-                onChange={(e) =>
-                  setFormModal({ ...formModal, status: e.target.value })
-                }
-              >
-                <option value="">-- Ubah Status --</option>
-                <option value="open">open</option>
-                <option value="progress">progress</option>
-                <option value="closed">closed</option>
-                <option value="cancel">cancel</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="d-flex justify-content-end mt-4 gap-2">
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={() => setIsEditModalOpen(false)}
-            >
-              Batal
-            </button>
-            <button type="submit" className="btn btn-primary px-4">
-              Simpan Perubahan
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* delete modal */}
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        title="Hapus Buku"
-      >
-        <div className="p-4">
-          <p className="mb-4">
-            Apakah Anda yakin ingin <strong>"{selectedTicket?.title}"</strong>?
-          </p>
-          <div className="d-flex justify-content-end gap-2">
-            <button
-              className="btn btn-outline-secondary"
-              onClick={() => setIsDeleteModalOpen(false)}
-            >
-              Batal
-            </button>
-            <button className="btn btn-danger" onClick={handleDelete}>
-              Hapus
-            </button>
           </div>
         </div>
-      </Modal>
+      </div>
 
-      {/* Detail Modal */}
-      <Modal
-        isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
-        title="Detail Tiket"
-      >
-        <div className="p-4">
-          <div className="mb-3">
-            <h5 className="fw-bold">{detailTicket.title}</h5>
-            <p className="text-muted mb-4">Pengguna: {detailTicket.email}</p>
-          </div>
-
-          <div className="border-top border-bottom py-3 mb-4">
-            <div className="row">
-              <div className="col-md-6">
-                <div className="mb-3">
-                  <small className="text-muted d-block">Tanggal</small>
-                  <p>{detailTicket.assign_at}</p>
+      {/* Info Boxes - Optional */}
+      <div className="row mt-4 justify-content-center">
+        <div className="col-xl-3 col-md-6 mb-4">
+          <div className="card border-left-primary shadow-sm h-100 py-2" style={{ borderRadius: '10px' }}>
+            <div className="card-body">
+              <div className="d-flex align-items-center">
+                <div className="me-3">
+                  <i className="bi bi-ticket-detailed text-primary" style={{ fontSize: '1.8rem' }}></i>
                 </div>
-                <div className="mb-3">
-                  <small className="text-muted d-block">Jenis Tiket</small>
-                  <p>{detailTicket.ticket_type}</p>
+                <div className='d-flex flex-column justify-content-center text-center'>
+                  <div className="text-xs text-center font-weight-bold text-primary text-uppercase mb-1">
+                    Total Tiket Bulan Ini
+                  </div>
+                  <div className="h5 mb-0 font-weight-bold text-gray-800">
+                    {Object.values(monthlyData).reduce((a, b) => a + b, 0)}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-
-          <div className="mb-4">
-            <small className="text-muted d-block">Deskripsi</small>
-            <p>{detailTicket.description}</p>
-          </div>
-
-          <div className="d-flex justify-content-end">
-            <button
-              className="btn btn-primary"
-              onClick={() => setIsDetailModalOpen(false)}
-            >
-              Tutup
-            </button>
-          </div>
         </div>
-      </Modal>
+      </div>
     </div>
   );
 }
