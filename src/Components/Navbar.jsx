@@ -43,8 +43,8 @@ export default function Navbar() {
               fontWeight: '500'
             }}
           >
-            <i className="bi bi-house-door me-3" style={{ width: '20px' }}></i>
-            Index
+            <i className="bi bi-speedometer2 me-3" style={{ width: '20px' }}></i>
+            Dashboard
           </Link>
         </li>
         <li className="nav-item">
@@ -62,8 +62,8 @@ export default function Navbar() {
               fontWeight: '500'
             }}
           >
-            <i className="bi bi-speedometer2 me-3" style={{ width: '20px' }}></i>
-            Dashboard
+            <i className="bi bi-house-door me-3" style={{ width: '20px' }}></i>
+            Index
           </Link>
         </li>
       </ul>
